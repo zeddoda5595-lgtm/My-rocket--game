@@ -2,9 +2,9 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RL 3D: Countdown & Kickoff</title>
+    <title>Rocket 3D: Geometric Edition</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; }
         
         /* شاشة البداية */
         #ui-overlay {
@@ -13,22 +13,24 @@
             align-items: center; justify-content: center; z-index: 100;
         }
         #start-btn {
-            padding: 20px 60px; font-size: 25px; color: white;
-            background: linear-gradient(45deg, #007bff, #00c6ff); border: none; border-radius: 50px; cursor: pointer;
-            box-shadow: 0 10px 20px rgba(0,123,255,0.4);
+            padding: 15px 40px; font-size: 20px; color: white;
+            background: #28a745; border: none; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(40,167,69,0.4);
         }
 
         /* نص العد التنازلي */
         #countdown {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 120px; color: white; text-shadow: 0 0 30px rgba(255,255,255,0.8);
-            display: none; z-index: 50; pointer-events: none;
+            font-size: 100px; color: white; font-weight: bold; text-shadow: 0 0 20px #fff;
+            display: none; z-index: 200; pointer-events: none;
         }
 
-        #boost-container {
-            position: fixed; bottom: 120px; right: 30px; width: 90px; height: 90px;
+        /* عداد البوست الدائري */
+        #boost-gui {
+            position: fixed; bottom: 120px; right: 30px; width: 85px; height: 85px;
             border-radius: 50%; border: 4px solid rgba(255,255,255,0.2);
-            display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.3);
+            display: none; align-items: center; justify-content: center; overflow: hidden;
+            background: rgba(0,0,0,0.3);
         }
         #boost-fill {
             position: absolute; bottom: 0; width: 100%; background: #ff4500;
@@ -36,30 +38,32 @@
         }
         #boost-text { color: white; font-weight: bold; z-index: 2; font-size: 22px; }
         
+        /* أزرار التحكم لجوال */
         .controls {
             position: fixed; bottom: 20px; width: 100%; display: none;
-            justify-content: space-between; padding: 0 25px; box-sizing: border-box;
-            pointer-events: none; z-index: 10;
+            justify-content: space-between; padding: 0 20px; box-sizing: border-box;
+            z-index: 10; pointer-events: none;
         }
         .btn {
             width: 70px; height: 70px; background: rgba(255,255,255,0.15);
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            color: white; pointer-events: auto; border: 2px solid rgba(255,255,255,0.3);
+            color: white; pointer-events: auto; user-select: none; border: 2px solid rgba(255,255,255,0.3);
             backdrop-filter: blur(5px);
         }
-        .joy-area { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .btn:active { background: rgba(255,255,255,0.3); transform: scale(0.9); }
+        .joy-area { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
     </style>
 </head>
 <body>
 
 <div id="ui-overlay">
-    <h1 style="color: white; font-size: 40px; margin-bottom: 40px;">ROCKET 3D</h1>
-    <button id="start-btn">إبدأ المباراة</button>
+    <h1 style="color: white; margin-bottom: 30px;">ROCKET 3D</h1>
+    <button id="start-btn">KICKOFF!</button>
 </div>
 
 <div id="countdown">3</div>
 
-<div id="boost-container">
+<div id="boost-gui">
     <div id="boost-fill"></div>
     <div id="boost-text">100</div>
 </div>
@@ -70,7 +74,7 @@
         <div class="btn" id="left">◀</div><div></div><div class="btn" id="right">▶</div>
         <div></div><div class="btn" id="down">▼</div><div></div>
     </div>
-    <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; gap: 10px; align-self: flex-end;">
         <div class="btn" id="boost" style="background:rgba(255,69,0,0.5)">BOOST</div>
         <div class="btn" id="jump" style="background:rgba(0,123,255,0.5)">JUMP</div>
     </div>
@@ -84,68 +88,83 @@ scene.background = new THREE.Color(0x0a0a0a);
 const camera = new THREE.PerspectiveCamera(65, window.innerWidth/window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer);
 
 // الإضاءة والملعب
 scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 200), new THREE.MeshStandardMaterial({color: 0x1a3a1a}));
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 200), new THREE.MeshStandardMaterial({color: 0x113311}));
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-// الكرة والسيارات
-const ball = new THREE.Mesh(new THREE.SphereGeometry(2.5, 32, 32), new THREE.MeshStandardMaterial({color: 0xffffff}));
-const car = new THREE.Group();
-car.add(new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.8, 6), new THREE.MeshStandardMaterial({color: 0x007bff})));
-const aiCar = new THREE.Group();
-aiCar.add(new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.8, 6), new THREE.MeshStandardMaterial({color: 0xff1111})));
+// دالة لإنشاء سيارة بسيطة (جسم، مقدمة، عجلات)
+function createCar(color) {
+    const carGroup = new THREE.Group();
+    // الجسم الرئيسي
+    const carBody = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 8), new THREE.MeshStandardMaterial({ color: color }));
+    carGroup.add(carBody);
+    // مقدمة السيارة
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(3, 0.8, 1), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+    nose.position.z = 4.5;
+    carGroup.add(nose);
+    // عجلات بسيطة (أسطوانات)
+    function addWheel(x, z) {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.5, 16), new THREE.MeshStandardMaterial({ color: 0x000000 }));
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(x, -0.5, z);
+        carGroup.add(wheel);
+    }
+    addWheel(2.2, 2.5); addWheel(-2.2, 2.5); addWheel(2.2, -2.5); addWheel(-2.2, -2.5);
+    return carGroup;
+}
 
-scene.add(ball, car, aiCar);
+// دالة لإنشاء كرة بسيطة (كرة قدم برتقالية مع شبكة)
+function createBall() {
+    const ballGeometry = new THREE.SphereGeometry(3, 32, 32);
+    const ballMaterial = new THREE.MeshStandardMaterial({ color: 0xff8800, wireframe: true, wireframeLinewidth: 2 });
+    return new THREE.Mesh(ballGeometry, ballMaterial);
+}
+
+// إنشاء الكائنات وإضافتها للمشهد
+const userModel = createCar(0x007bff); // سيارة اللاعب (أزرق)
+const aiModel = createCar(0xff1111);   // سيارة الـ AI (أحمر)
+const ballModel = createBall();        // الكرة (برتقالي)
+
+scene.add(userModel, aiModel, ballModel);
 
 // متغيرات المباراة
-let gameActive = false; // التحكم في تجميد الحركة
+let gameActive = false;
 let boostAmount = 100;
 let speed = 0;
-let aiSpeed = 0;
 const keys = {};
 
 function resetPositions() {
-    ball.position.set(0, 2.5, 0);
-    car.position.set(0, 1, 60);
-    car.rotation.y = Math.PI;
-    aiCar.position.set(0, 1, -60);
-    aiCar.rotation.y = 0;
+    ballModel.position.set(0, 3, 0);
+    userModel.position.set(0, 1.5, 60);
+    userModel.rotation.set(0, Math.PI, 0);
+    aiModel.position.set(0, 1.5, -60);
+    aiModel.rotation.set(0, 0, 0);
     speed = 0;
-    aiSpeed = 0;
-}
-
-// دالة العد التنازلي
-function startCountdown() {
-    const cdElement = document.getElementById('countdown');
-    cdElement.style.display = 'block';
-    let count = 3;
-    
-    const interval = setInterval(() => {
-        count--;
-        if (count > 0) {
-            cdElement.innerText = count;
-        } else if (count === 0) {
-            cdElement.innerText = "GO!";
-            gameActive = true; // فك تجميد الحركة هنا
-        } else {
-            cdElement.style.display = 'none';
-            clearInterval(interval);
-        }
-    }, 1000);
 }
 
 document.getElementById('start-btn').onclick = () => {
     document.getElementById('ui-overlay').style.display = 'none';
     document.getElementById('mobile-ui').style.display = 'flex';
-    document.getElementById('boost-container').style.display = 'flex';
+    document.getElementById('boost-gui').style.display = 'flex';
     resetPositions();
-    startCountdown(); // بدء العد التنازلي
+
+    const cdElement = document.getElementById('countdown');
+    cdElement.style.display = 'block';
+    let count = 3;
+    const interval = setInterval(() => {
+        count--;
+        if(count > 0) cdElement.innerText = count;
+        else if(count === 0) { cdElement.innerText = "GO!"; gameActive = true; }
+        else { cdElement.style.display = 'none'; clearInterval(interval); cdElement.innerText = "3"; }
+    }, 1000);
 };
 
+// ربط التحكم
 const setup = (id) => {
     const el = document.getElementById(id);
     el.ontouchstart = (e) => { e.preventDefault(); keys[id] = true; };
@@ -156,40 +175,36 @@ const setup = (id) => {
 function animate() {
     requestAnimationFrame(animate);
     
-    if (gameActive) { // لا يتحرك أحد إلا إذا كانت المباراة مفعلة
+    if (gameActive) {
         // حركة اللاعب
-        if(keys['up']) speed += 0.006;
-        if(keys['down']) speed -= 0.006;
-        if(keys['left']) car.rotation.y += 0.04;
-        if(keys['right']) car.rotation.y -= 0.04;
+        if(keys['up']) speed += 0.007;
+        if(keys['down']) speed -= 0.007;
+        if(keys['left']) userModel.rotation.y += 0.04;
+        if(keys['right']) userModel.rotation.y -= 0.04;
         
-        if(keys['boost'] && boostAmount > 0) {
-            speed += 0.015;
-            boostAmount -= 0.7;
-        }
+        if(keys['boost'] && boostAmount > 0) { speed += 0.015; boostAmount -= 0.8; }
         
         speed *= 0.96;
-        car.translateZ(speed);
+        userModel.translateZ(speed);
 
-        // حركة الذكاء الاصطناعي (AI)
-        aiSpeed = 0.25;
-        const aiDir = new THREE.Vector3().subVectors(ball.position, aiCar.position).normalize();
-        aiCar.position.add(aiDir.multiplyScalar(aiSpeed));
-        aiCar.lookAt(ball.position);
+        // ذكاء اصطناعي (AI) يلحق الكرة
+        const aiDir = new THREE.Vector3().subVectors(ballModel.position, aiModel.position).normalize();
+        aiModel.position.add(aiDir.multiplyScalar(0.25));
+        aiModel.lookAt(ballModel.position);
 
         // اصطدامات بسيطة
-        if(car.position.distanceTo(ball.position) < 5) ball.position.z -= 2;
-        if(aiCar.position.distanceTo(ball.position) < 5) ball.position.z += 2;
+        if(userModel.position.distanceTo(ballModel.position) < 6) ballModel.position.z -= 1.8;
+        if(aiModel.position.distanceTo(ballModel.position) < 6) ballModel.position.z += 1.8;
     }
 
     // تحديث واجهة البوست
     document.getElementById('boost-fill').style.height = boostAmount + "%";
     document.getElementById('boost-text').innerText = Math.floor(boostAmount);
 
-    // كاميرا تتبع اللاعب (دائماً تعمل لتعطيك شعور الدخول للملعب)
-    const camOffset = new THREE.Vector3(0, 10, -22).applyMatrix4(car.matrixWorld);
+    // كاميرا تتبع اللاعب
+    const camOffset = new THREE.Vector3(0, 10, -22).applyMatrix4(userModel.matrixWorld);
     camera.position.lerp(camOffset, 0.1);
-    camera.lookAt(car.position);
+    camera.lookAt(userModel.position);
 
     renderer.render(scene, camera);
 }
@@ -197,4 +212,3 @@ animate();
 </script>
 </body>
 </html>
-
