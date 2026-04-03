@@ -2,99 +2,178 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mobile Rocket 2D</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <title>Rocket League 3D Pro</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: sans-serif; touch-action: none; }
-        canvas { display: block; }
-        .controls { position: fixed; bottom: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; box-sizing: border-box; pointer-events: none; }
-        .btn { 
-            width: 80px; height: 80px; background: rgba(255,255,255,0.2); 
-            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-            color: white; font-weight: bold; font-size: 14px; pointer-events: auto;
-            user-select: none; border: 2px solid rgba(255,255,255,0.4);
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; }
+        #ui-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 100;
         }
-        .btn:active { background: rgba(255,255,255,0.5); transform: scale(0.9); }
-        .left-group { display: flex; gap: 15px; }
+        #start-btn {
+            padding: 15px 40px; font-size: 20px; color: white;
+            background: #007bff; border: none; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 0 20px rgba(0,123,255,0.5);
+        }
+        .controls {
+            position: fixed; bottom: 30px; width: 100%; display: none;
+            justify-content: space-between; padding: 0 30px; box-sizing: border-box;
+            pointer-events: none; z-index: 10;
+        }
+        .btn {
+            width: 75px; height: 75px; background: rgba(255,255,255,0.15);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            color: white; pointer-events: auto; user-select: none; border: 1px solid rgba(255,255,255,0.3);
+            backdrop-filter: blur(5px);
+        }
+        .btn:active { background: rgba(255,255,255,0.4); transform: scale(0.9); }
+        .joy-area { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     </style>
 </head>
 <body>
 
-<div class="controls">
-    <div class="left-group">
-        <div class="btn" id="btnLeft">⬅️</div>
-        <div class="btn" id="btnRight">➡️</div>
+<div id="ui-overlay">
+    <h1 style="color: white; letter-spacing: 5px;">RL MOBILE 3D</h1>
+    <p style="color: #888; margin-bottom: 30px;">Physics: Realistic / Slow-paced</p>
+    <button id="start-btn">إبدأ اللعبة</button>
+</div>
+
+<div class="controls" id="mobile-ui">
+    <div class="joy-area">
+        <div></div><div class="btn" id="up">▲</div><div></div>
+        <div class="btn" id="left">◀</div><div></div><div class="btn" id="right">▶</div>
+        <div></div><div class="btn" id="down">▼</div><div></div>
     </div>
-    <div class="left-group">
-        <div class="btn" id="btnJump" style="background: rgba(255, 165, 0, 0.3);">JUMP</div>
-        <div class="btn" id="btnBoost" style="background: rgba(255, 0, 0, 0.3);">BOOST</div>
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+        <div class="btn" id="boost" style="background: rgba(255, 69, 0, 0.4);">BOOST</div>
+        <div class="btn" id="jump" style="background: rgba(0, 123, 255, 0.4);">JUMP</div>
     </div>
 </div>
 
-<script>
-    const { Engine, Render, Runner, Bodies, Composite, Body, Vector } = Matter;
-    const engine = Engine.create();
-    const render = Render.create({
-        element: document.body,
-        engine: engine,
-        options: { width: window.innerWidth, height: window.innerHeight, wireframes: false, background: '#222' }
-    });
+<script type="module">
+import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 
-    // إنشاء الأرضية والجدران
-    const ground = Bodies.rectangle(window.innerWidth/2, window.innerHeight + 25, window.innerWidth, 60, { isStatic: true });
-    const wallLeft = Bodies.rectangle(-25, window.innerHeight/2, 60, window.innerHeight, { isStatic: true });
-    const wallRight = Bodies.rectangle(window.innerWidth + 25, window.innerHeight/2, 60, window.innerHeight, { isStatic: true });
-    const ceiling = Bodies.rectangle(window.innerWidth/2, -25, window.innerWidth, 60, { isStatic: true });
+// 1. إعداد المشهد والكاميرا
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050505);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+document.body.appendChild(renderer);
 
-    // السيارة والكرة (فيزياء روكت ليق)
-    const car = Bodies.rectangle(200, window.innerHeight - 100, 80, 40, { 
-        friction: 0.1, frictionAir: 0.02, 
-        render: { fillStyle: '#3498db' } 
-    });
-    const ball = Bodies.circle(window.innerWidth/2, 200, 35, { 
-        restitution: 0.8, friction: 0.05, density: 0.001,
-        render: { fillStyle: '#f1c40f' } 
-    });
+// 2. الإضاءة
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+scene.add(ambientLight);
+const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
+sunLight.position.set(50, 100, 50);
+scene.add(sunLight);
 
-    Composite.add(engine.world, [car, ball, ground, wallLeft, wallRight, ceiling]);
+// 3. الملعب (أرضية مع خطوط)
+const grid = new THREE.GridHelper(200, 20, 0x444444, 0x222222);
+scene.add(grid);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 200), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
+floor.rotation.x = -Math.PI / 2;
+scene.add(floor);
 
-    // وظائف الحركة
-    const move = (dir) => Body.applyForce(car, car.position, { x: dir * 0.005, y: 0 });
-    const jump = () => Body.applyForce(car, car.position, { x: 0, y: -0.06 });
-    const boost = () => Body.applyForce(car, car.position, { x: Math.cos(car.angle) * 0.02, y: Math.sin(car.angle) * 0.02 });
+// 4. السيارة (الجسم الحالي حتى ترسل المجسم)
+const carContainer = new THREE.Group();
+const body = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 6), new THREE.MeshStandardMaterial({ color: 0x007bff }));
+carContainer.add(body);
+const nose = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 1), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+nose.position.z = 3.5; // تمييز المقدمة
+carContainer.add(nose);
+scene.add(carContainer);
+carContainer.position.y = 0.75;
 
-    // ربط الأزرار (Touch & Mouse)
-    const setupBtn = (id, action) => {
-        const el = document.getElementById(id);
-        let interval;
-        const start = () => { action(); interval = setInterval(action, 20); };
-        const stop = () => clearInterval(interval);
-        el.addEventListener('touchstart', (e) => { e.preventDefault(); start(); });
-        el.addEventListener('touchend', stop);
-        el.addEventListener('mousedown', start);
-        el.addEventListener('mouseup', stop);
-    };
+// 5. الكرة (بفيزياء أثقل)
+const ball = new THREE.Mesh(new THREE.SphereGeometry(2.5, 32, 32), new THREE.MeshStandardMaterial({ color: 0xffd700 }));
+ball.position.set(0, 2.5, -30);
+scene.add(ball);
 
-    setupBtn('btnLeft', () => move(-1));
-    setupBtn('btnRight', () => move(1));
-    setupBtn('btnJump', jump);
-    setupBtn('btnBoost', boost);
+// 6. متغيرات الحركة (الفيزياء المبطئة)
+let speed = 0;
+let rotationY = 0;
+let carVelocityY = 0;
+let isGrounded = true;
+const keys = {};
 
-    // إضافة تحكم الكيبورد أيضاً
-    window.addEventListener('keydown', (e) => {
-        if(e.key === 'ArrowLeft') move(-1);
-        if(e.key === 'ArrowRight') move(1);
-        if(e.key === ' ') jump();
-        if(e.key === 'Shift') boost();
-    });
+// 7. البداية
+document.getElementById('start-btn').onclick = () => {
+    document.getElementById('ui-overlay').style.display = 'none';
+    document.getElementById('mobile-ui').style.display = 'flex';
+};
 
-    Render.run(render);
-    Runner.run(Runner.create(), engine);
+// 8. التحكم بالأزرار
+const setupControl = (id) => {
+    const el = document.getElementById(id);
+    el.ontouchstart = (e) => { e.preventDefault(); keys[id] = true; };
+    el.ontouchend = () => { keys[id] = false; };
+};
+['up', 'down', 'left', 'right', 'boost', 'jump'].forEach(setupControl);
 
-    // إعادة ضبط الكرة إذا خرجت أو للبدء من جديد
-    setInterval(() => {
-        if (ball.position.y > window.innerHeight) Body.setPosition(ball, {x: window.innerWidth/2, y: 100});
-    }, 1000);
+// 9. حلقة التحديث (Game Loop)
+function animate() {
+    requestAnimationFrame(animate);
+
+    // منطق الحركة البطيئة والوزن
+    if (keys['up']) speed += 0.005; // تسارع أبطأ
+    if (keys['down']) speed -= 0.005;
+    if (keys['left']) rotationY += 0.02;
+    if (keys['right']) rotationY -= 0.02;
+
+    // البوست (أسرع قليلاً مع تأثير)
+    if (keys['boost']) {
+        speed += 0.01;
+        body.material.emissive.setHex(0xff4500);
+    } else {
+        body.material.emissive.setHex(0x000000);
+    }
+
+    // الاحتكاك (تباطؤ طبيعي)
+    speed *= 0.97;
+    carContainer.translateZ(speed);
+    carContainer.rotation.y = rotationY;
+
+    // الجاذبية والقفز
+    if (keys['jump'] && isGrounded) {
+        carVelocityY = 0.4; // قوة قفزة متزنة
+        isGrounded = false;
+    }
+
+    if (!isGrounded) {
+        carVelocityY -= 0.015; // جاذبية
+        carContainer.position.y += carVelocityY;
+        
+        // نظام "الفليب" (دوران أثناء القفز)
+        if (keys['up']) carContainer.rotation.x -= 0.05;
+        if (keys['down']) carContainer.rotation.x += 0.05;
+
+        if (carContainer.position.y <= 0.75) {
+            carContainer.position.y = 0.75;
+            carContainer.rotation.x = 0;
+            isGrounded = true;
+            carVelocityY = 0;
+        }
+    }
+
+    // تحريك الكرة بشكل بسيط (عند الاصطدام)
+    const dist = carContainer.position.distanceTo(ball.position);
+    if (dist < 5) {
+        ball.position.z += speed * 1.5;
+        ball.position.x += (ball.position.x - carContainer.position.x) * 0.1;
+    }
+
+    // الكاميرا (تتبع ناعم)
+    const offset = new THREE.Vector3(0, 8, -20);
+    const worldOffset = offset.applyMatrix4(carContainer.matrixWorld);
+    camera.position.lerp(worldOffset, 0.1);
+    camera.lookAt(carContainer.position);
+
+    renderer.render(scene, camera);
+}
+
+animate();
 </script>
 </body>
 </html>
